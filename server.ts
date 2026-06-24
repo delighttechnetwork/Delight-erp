@@ -182,12 +182,25 @@ const initialDB = {
   } as SystemSettings
 };
 
-// LOAD DB OR INITIALIZE IF ABSENT
+// LOAD DB OR INITIALIZE IF ABSENT (with robust in-memory fallback for read-only filesystems like Vercel)
+let inMemoryDB: any = null;
+
 function getDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialDB, null, 2));
-    return initialDB;
+  if (inMemoryDB) {
+    return inMemoryDB;
   }
+
+  if (!fs.existsSync(DB_FILE)) {
+    console.log('DB_FILE not found, initializing in-memory DB');
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(initialDB, null, 2));
+    } catch (e: any) {
+      console.warn('Could not write initial DB_FILE (expected in read-only environments like Vercel):', e.message);
+    }
+    inMemoryDB = JSON.parse(JSON.stringify(initialDB));
+    return inMemoryDB;
+  }
+
   try {
     const data = fs.readFileSync(DB_FILE, 'utf8');
     const parsed = JSON.parse(data);
@@ -212,20 +225,27 @@ function getDB() {
     }
     
     if (changed) {
-      fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2));
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2));
+      } catch (e: any) {
+        console.warn('Could not write backfilled DB_FILE:', e.message);
+      }
     }
-    return parsed;
+    inMemoryDB = parsed;
+    return inMemoryDB;
   } catch (err) {
     console.error('Error reading DB, using fresh initialDB', err);
-    return initialDB;
+    inMemoryDB = JSON.parse(JSON.stringify(initialDB));
+    return inMemoryDB;
   }
 }
 
 function saveDB(data: any) {
+  inMemoryDB = data;
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Failed to write database file', err);
+  } catch (err: any) {
+    console.error('Failed to write database file (expected in read-only environments like Vercel):', err.message);
   }
 }
 
@@ -1822,4 +1842,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
