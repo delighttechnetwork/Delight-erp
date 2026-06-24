@@ -1,0 +1,8 @@
+{
+  "name": "School Result Management Portal",
+  "description": "A secure cloud-based school academic result portal with dashboards for Admins, Teachers, Principals, and Students, featuring automated rankings, promotion evaluations, school report cards, and AI-powered performance remarks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
